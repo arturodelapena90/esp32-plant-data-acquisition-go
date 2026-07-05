@@ -1,13 +1,16 @@
 package mqtt
 
 import (
+	"context"
 	"encoding/json"
+	"io"
+	"time"
 
-	mqtt "github.com/eclipse/paho.mqtt.golang"
+	mqtt "github.com/soypat/natiu-mqtt"
 	"go.uber.org/zap"
 )
 
-// data represents the complete plant sensor payload
+// Data structure matches your existing payload
 type Data struct {
 	Timestamp   int64    `json:"timestamp"`
 	Light       *float32 `json:"light_lux"`
@@ -17,23 +20,44 @@ type Data struct {
 	Moisture2   *float32 `json:"moisture2_percent"`
 }
 
-// publish sends data to MQTT broker
-func Publish(log *zap.SugaredLogger, dataChan <-chan Data, client mqtt.Client, topic string) {
-	for payload := range dataChan {
-		data, err := json.Marshal(payload)
-		if err != nil {
-			log.Errorf("failed to marshal mqtt payload: %v", err)
-			continue
-		}
+// Client wraps the natiu-mqtt client
+type Client struct {
+	client *mqtt.Client
+}
 
-		token := client.Publish(topic, 1, false, data)
-		token.Wait()
+// SetupMQTT initializes the client.
+func SetupMQTT(conn io.ReadWriteCloser, clientID string) (*Client, error) {
+	client := mqtt.NewClient(mqtt.ClientConfig{
+		Decoder: mqtt.DecoderNoAlloc{make([]byte, 1500)},
+	})
 
-		if token.Error() != nil {
-			log.Errorf("failed to publish to %s: %v", topic, token.Error())
-			continue
-		}
+	var varconn mqtt.VariablesConnect
+	varconn.SetDefaultMQTT([]byte(clientID))
+	varconn.KeepAlive = 60
 
-		log.Infof("mqtt published to %s: %s", topic, string(data))
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	err := client.Connect(ctx, conn, &varconn)
+	if err != nil {
+		return nil, err
 	}
+	return &Client{client: client}, nil
+}
+
+// Publish serializes and sends your data
+func (c *Client) Publish(log *zap.SugaredLogger, topic string, mqttChan <-chan Data) error {
+	for data := range mqttChan {
+		payload, err := json.Marshal(data)
+		if err != nil {
+			log.Errorf("failed to marshal data: %v", err)
+			continue
+		}
+		pubFlags, _ := mqtt.NewPublishFlags(mqtt.QoS0, false, false)
+		pubVar := mqtt.VariablesPublish{TopicName: []byte(topic)}
+		if err := c.client.PublishPayload(pubFlags, pubVar, payload); err != nil {
+			log.Errorf("failed to publish data: %v", err)
+		}
+	}
+	return nil
 }

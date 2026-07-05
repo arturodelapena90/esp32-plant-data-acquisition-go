@@ -4,31 +4,50 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"tinygo.org/x/drivers/dht"
 )
+
+type Sensor struct {
+	log    *zap.SugaredLogger
+	device dht.Device
+}
 
 type Reading struct {
 	Temperature *float32
 	Humidity    *float32
 }
 
-// Init initializes the DHT22 sensor hardware on the specified pin
-func Init(log *zap.SugaredLogger, pin int) {
-	initDHT22(log, pin)
+func New(log *zap.SugaredLogger, pin uint8) (*Sensor, error) {
+	device, err := initDHT22(log, pin)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Sensor{
+		log:    log,
+		device: device,
+	}, nil
 }
 
-// periodically read temperature and humidity from DHT22 sensor and sends data to channel
-func Read(log *zap.SugaredLogger, interval time.Duration, readingChan chan<- Reading) {
+func (s *Sensor) Start(interval time.Duration, readingChan chan<- Reading) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for range ticker.C {
-		temp, humidity, err := readDHT22(log)
+		reading, err := s.Read()
 		if err != nil {
-			log.Errorf("climate sensor error: %v", err)
+			s.log.Errorf("climate sensor error: %v", err)
 		}
-		readingChan <- Reading{
-			Temperature: temp,
-			Humidity:    humidity,
-		}
+
+		readingChan <- reading
 	}
+}
+
+func (s *Sensor) Read() (Reading, error) {
+	temp, humidity, err := readDHT22(s.log, s.device)
+
+	return Reading{
+		Temperature: temp,
+		Humidity:    humidity,
+	}, err
 }

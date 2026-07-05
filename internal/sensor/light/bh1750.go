@@ -4,44 +4,44 @@ package light
 
 import (
 	"machine"
-	"time"
-
-	"go.uber.org/zap"
 )
 
 const (
-	BH1750Addr      = 0x23                   // 7-bit I2C address
-	BH1750PowerOn   = 0x01                   // Power on command
-	BH1750Reset     = 0x07                   // Reset command
-	BH1750ModeHRes  = 0x10                   // Continuous high resolution mode (1 lux resolution)
-	BH1750ReadDelay = 180 * time.Millisecond // Measurement time for high resolution mode
+	BH1750PowerOn  = 0x01
+	BH1750Reset    = 0x07
+	BH1750ModeHRes = 0x10
 )
 
-// initialize the BH1750 sensor via I2C
-func initBH1750(log *zap.SugaredLogger) (machine.I2C, error) {
-	err := machine.I2C1.Tx(BH1750Addr, []byte{BH1750PowerOn, BH1750Reset, BH1750ModeHRes}, nil)
-	if err != nil {
-		log.Errorf("failed to initialize BH1750: %v", err)
-		return machine.I2C1, err
+// initBH1750 configures the sensor
+func initBH1750(bus machine.I2C, addr uint8) error {
+	// power on
+	if err := bus.Tx(addr, []byte{BH1750PowerOn}, nil); err != nil {
+		return err
 	}
-	log.Infof("BH1750 initialized successfully")
-	return machine.I2C1, nil
+
+	// reset
+	if err := bus.Tx(addr, []byte{BH1750Reset}, nil); err != nil {
+		return err
+	}
+
+	// set mode
+	if err := bus.Tx(addr, []byte{BH1750ModeHRes}, nil); err != nil {
+		return err
+	}
+
+	return nil
 }
 
-// readBH1750 reads light intensity from BH1750 sensor via I2C
-func readBH1750(log *zap.SugaredLogger, i2cBus machine.I2C) (*float32, error) {
-
-	// read 2 bytes (MSB, LSB)
+// readBH1750 reads lux from sensor
+func readBH1750(bus machine.I2C, addr uint8) (*float32, error) {
 	data := make([]byte, 2)
-	err := i2cBus.Tx(BH1750Addr, nil, data)
-	if err != nil {
-		log.Errorf("failed to read BH1750 data: %v", err)
+
+	if err := bus.Tx(addr, nil, data); err != nil {
 		return nil, err
 	}
 
-	// convert bytes to lux: (MSB << 8 | LSB) / 1.2
-	rawValue := uint16(data[0])<<8 | uint16(data[1])
-	lux := float32(rawValue) / 1.2
+	raw := uint16(data[0])<<8 | uint16(data[1])
+	lux := float32(raw) / 1.2
 
 	return &lux, nil
 }
