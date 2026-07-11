@@ -37,7 +37,6 @@ func main() {
 	// --------------------
 	// WiFi Setup
 	// --------------------
-	// TODO: add wifi conn
 	if err := machine.WIFI.Configure(machine.WIFIConfig{
 		SSID:     cfg.WifiSSID,
 		Password: cfg.WifiPassword,
