@@ -23,8 +23,18 @@ LDFLAGS = $(shell set -a && . ./.env && set +a && \
 build:
 	tinygo build -target=$(TARGET) -ldflags="$(LDFLAGS)" -o firmware.bin main.go
 
-flash:
-	tinygo flash -target=$(TARGET) -port=$(SERIAL_PORT) -ldflags="$(LDFLAGS)" main.go
+# `tinygo flash` doesn't expose a flash-size override, and this board's
+# N16R8 16MB flash chip needs one: TinyGo's esp32s3 image builder defaults
+# the image header's flash-size field to 2MB regardless of target, which
+# the ROM's cache-mapped boot-time SHA-256 self-check reads against — a
+# mismatch there was mistaken for a hardware/boot fault during initial
+# bring-up. esptool's --flash-size patches that header field (and
+# recomputes the image's SHA-256 footer to match) as part of flashing, so
+# flash via esptool directly instead of `tinygo flash`.
+flash: build
+	esptool --port $(SERIAL_PORT) --chip esp32s3 write-flash \
+		--flash-size 16MB --flash-mode dio --flash-freq 80m \
+		0x0 firmware.bin
 
 monitor:
 	tinygo monitor -port=$(SERIAL_PORT) -baudrate=115200
