@@ -51,9 +51,13 @@ make build
 make flash
 
 # Monitor
-make monitor                       # defaults to /dev/ttyUSB0
-make monitor SERIAL_PORT=/dev/ttyACM0
+make monitor                       # defaults to /dev/ttyACM0
+make monitor SERIAL_PORT=/dev/ttyUSB0
 ```
+
+Uses `targets/esp32s3-uart.json` (`esp32s3-generic` + `flash-method: esp32flash`), not the default `esp32s3-generic` target directly — that default resets via the native USB-Serial/JTAG peripheral, which this board (external CH34x UART bridge) doesn't have; flashing hung on "failed to sync with ESP bootloader" until switched to the classic UART reset method.
+
+**On WSL2**: the board isn't visible to Linux until attached via `usbipd` (Windows PowerShell, as Administrator): `usbipd list` to find its `BUSID`, `usbipd bind --busid <ID>` once, then `usbipd attach --wsl --busid <ID>` every time it's replugged. Then `ls /dev/tty*` in WSL to confirm it shows up (`/dev/ttyACM0` or `/dev/ttyUSB0` depending on the board's USB chip).
 
 ## MQTT Message
 

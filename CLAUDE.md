@@ -13,10 +13,14 @@ This is TinyGo firmware, not a regular Go binary — `go build` will fail becaus
 ```bash
 make build    # reads .env, writes firmware.bin
 make flash    # reads .env, flashes over USB
-make monitor  # serial monitor; SERIAL_PORT=/dev/ttyACM0 to override the /dev/ttyUSB0 default
+make monitor  # serial monitor; SERIAL_PORT=/dev/ttyUSB0 to override the /dev/ttyACM0 default
 ```
 
-Don't call `tinygo build`/`tinygo flash` directly unless you're deliberately bypassing config injection (see Configuration below) — they'll still compile, but the resulting firmware panics on boot. The target is `esp32s3-generic`, not `esp32-s3` (that name doesn't exist) or bare `esp32s3` (inheritable-only, TinyGo refuses to build with it directly).
+Don't call `tinygo build`/`tinygo flash` directly unless you're deliberately bypassing config injection (see Configuration below) — they'll still compile, but the resulting firmware panics on boot.
+
+Build/flash target is `targets/esp32s3-uart.json` (`Makefile`'s `TARGET`), not the built-in `esp32s3-generic` directly, and not `esp32-s3` (that name doesn't exist) or bare `esp32s3` (inheritable-only). The custom target only overrides one thing: `flash-method: esp32flash` instead of `esp32s3-generic`'s default `esp32jtag`. Verified by tracing TinyGo's own source (`main.go`, `flashBinUsingEsp32`): `esp32jtag` sets `ResetMode = espflasher.ResetUSBJTAG`, a reset sequence for chips using the native USB-Serial/JTAG peripheral. This board flashes through an external CH34x UART bridge (classic 2-transistor auto-reset circuit) instead, and kept failing "failed to sync with ESP bootloader" under the jtag reset mode; switching to `esp32flash` fixed it on the first try. If a future board actually has native USB-JTAG, switch back to plain `esp32s3-generic`.
+
+Under WSL2, the board isn't visible to Linux until attached via `usbipd` from Windows PowerShell (as Administrator): `usbipd list` → `usbipd bind --busid <ID>` (once) → `usbipd attach --wsl --busid <ID>` (every replug/reboot). Then `/dev/ttyACM0` or `/dev/ttyUSB0` should show up in `ls /dev/tty*`.
 
 Use `go vet ./...` / `gofmt` for quick static checks on non-hardware code, but treat `tinygo build` as the real compile check since hardware-specific files are gated behind `//go:build tinygo` (see below) — plain `go build`/`go vet` cannot type-check them at all.
 

@@ -1,0 +1,4 @@
+{
+	"inherits": ["esp32s3-generic"],
+	"flash-method": "esp32flash"
+}
