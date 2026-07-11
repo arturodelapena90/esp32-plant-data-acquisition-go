@@ -26,7 +26,9 @@ Each sensor runs in its own goroutine (`internal/sensor/{light,climate,soil}`). 
 
 ## Configuration
 
-Runtime config (WiFi credentials, Pi IP, MQTT topic/client ID) comes from environment variables — see `.env`. Hardware pin assignments and read interval are defaults in `internal/config/config.go`:
+WiFi credentials, Pi IP, and MQTT topic/client ID live in `.env`, but **`.env` is not read on the device** — a flashed ESP32-S3 has no OS environment for `os.Getenv` to read from. Instead these values are compiled directly into the binary via `-ldflags -X` (see `internal/config/config.go`), and `make build`/`make flash` read `.env` and construct those flags for you. A bare `tinygo build`/`tinygo flash` (bypassing `make`) will still compile, but the firmware will panic on boot with a clear "missing required build-time config" error rather than connecting with empty credentials.
+
+Hardware pin assignments and read interval are defaults in `internal/config/config.go`:
 
 ```go
 DHT22Pin:     4, // GPIO4
@@ -42,14 +44,15 @@ ReadInterval: 30 * time.Second,
 Requires TinyGo 0.41+ (for native ESP32 WiFi support via `tinygo.org/x/espradio`).
 
 ```bash
-# Build
-tinygo build -target=esp32s3-generic -o firmware.bin main.go
+# Build (reads .env, writes firmware.bin)
+make build
 
-# Flash
-tinygo flash -target=esp32s3-generic main.go
+# Flash (reads .env)
+make flash
 
 # Monitor
-tinygo monitor -port=/dev/ttyUSB0 -baud=921600
+make monitor                       # defaults to /dev/ttyUSB0
+make monitor SERIAL_PORT=/dev/ttyACM0
 ```
 
 ## MQTT Message
