@@ -1,7 +1,6 @@
 package light
 
 import (
-	"fmt"
 	"time"
 
 	"machine"
@@ -34,10 +33,7 @@ func (s *Sensor) Start(interval time.Duration, out chan<- Reading) {
 	defer ticker.Stop()
 
 	for range ticker.C {
-		r, err := s.Read()
-		if err != nil {
-			fmt.Printf("light sensor error: %v\n", err)
-		}
+		r, _ := s.Read()
 		out <- r
 	}
 }

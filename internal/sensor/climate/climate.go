@@ -1,10 +1,8 @@
 package climate
 
 import (
-	"fmt"
-	"time"
-
 	"machine"
+	"time"
 
 	"github.com/arturodelapena90/esp32-plant-acquisition/internal/sensor/climate/dhtdriver"
 )
@@ -34,11 +32,7 @@ func (s *Sensor) Start(interval time.Duration, readingChan chan<- Reading) {
 	defer ticker.Stop()
 
 	for range ticker.C {
-		reading, err := s.Read()
-		if err != nil {
-			fmt.Printf("climate sensor error: %v\n", err)
-		}
-
+		reading, _ := s.Read()
 		readingChan <- reading
 	}
 }
