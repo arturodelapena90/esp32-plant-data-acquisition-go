@@ -38,7 +38,6 @@ type Config struct {
 	SoilPin2     machine.Pin
 	I2CSDAPin    machine.Pin
 	I2CSCLPin    machine.Pin
-	StatusLEDPin machine.Pin
 	ReadInterval time.Duration
 }
 
@@ -64,7 +63,6 @@ func LoadConfig() (*Config, error) {
 		SoilPin2:      6,
 		I2CSDAPin:     8,
 		I2CSCLPin:     9,
-		StatusLEDPin:  48,
 		ReadInterval:  time.Duration(readIntervalSecs) * time.Second,
 	}
 	cfg.MQTTBroker = cfg.RaspberryPiIP + ":" + buildMQTTPort

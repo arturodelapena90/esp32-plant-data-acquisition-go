@@ -17,7 +17,7 @@ import (
 	"github.com/arturodelapena90/esp32-plant-acquisition/internal/sensor/climate"
 	"github.com/arturodelapena90/esp32-plant-acquisition/internal/sensor/light"
 	"github.com/arturodelapena90/esp32-plant-acquisition/internal/sensor/soil"
-	"github.com/arturodelapena90/esp32-plant-acquisition/internal/statusled"
+	"github.com/arturodelapena90/esp32-plant-acquisition/internal/timesync"
 )
 
 func main() {
@@ -30,13 +30,8 @@ func main() {
 		panic(err)
 	}
 
-	// --------------------
-	// Status LED Setup
-	// --------------------
-	statusled.Setup(cfg.StatusLEDPin)
 	fail := func(err error) {
 		fmt.Println("fatal:", err)
-		statusled.Fail(cfg.StatusLEDPin)
 		time.Sleep(20 * time.Second)
 		esp.RTC_CNTL.SetOPTIONS0_SW_SYS_RST(1)
 		for {
@@ -56,6 +51,15 @@ func main() {
 		fail(fmt.Errorf("failed to connect to WiFi: %w", err))
 	}
 	fmt.Printf("WiFi connected: %s\n", cfg.WifiSSID)
+
+	// --------------------
+	// Time Sync
+	// --------------------
+	if err := timesync.Sync("pool.ntp.org:123"); err != nil {
+		fmt.Printf("NTP sync failed, timestamps will be seconds-since-boot: %v\n", err)
+	} else {
+		fmt.Printf("Time synced: %s\n", time.Now().UTC())
+	}
 
 	// --------------------
 	// Establish TCP Pipe
@@ -126,23 +130,11 @@ func main() {
 	go soil1.Start(cfg.ReadInterval, soilChan1)
 	go soil2.Start(cfg.ReadInterval, soilChan2)
 
-	statusled.Ready(cfg.StatusLEDPin)
-
 	// --------------------
 	// Pipeline
 	// --------------------
 	go aggregator.Start(lightChan, climateChan, soilChan1, soilChan2, aggChan)
 	go mqttClient.Publish(cfg.MQTTTopic, mqttChan)
-
-	go func() {
-		for data := range aggChan {
-			select {
-			case mqttChan <- data:
-			default:
-			}
-			statusled.Pulse(cfg.StatusLEDPin)
-		}
-	}()
 
 	fmt.Println("ESP32 Plant Data Acquisition started")
 
