@@ -71,7 +71,7 @@ func (c *Client) Publish(topic string, mqttChan <-chan Data) error {
 			continue
 		}
 		pubFlags, _ := mqtt.NewPublishFlags(mqtt.QoS0, false, false)
-		pubVar := mqtt.VariablesPublish{TopicName: []byte(topic)}
+		pubVar := mqtt.VariablesPublish{TopicName: []byte(topic), PacketIdentifier: 1}
 		if err := c.client.PublishPayload(pubFlags, pubVar, payload); err != nil {
 			fmt.Printf("failed to publish data: %v\n", err)
 		}
